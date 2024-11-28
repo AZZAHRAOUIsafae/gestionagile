@@ -1,0 +1,16 @@
+h1{
+    color: red;
+    font: 200;
+    font-family: Verdana, Geneva, Tahoma, sans-serif;
+}
+span{
+    color:yellowgreen;
+    font-size: smaller;
+    font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
+}
+h2{
+    color: rgb(84, 26, 26);
+    size: 0cap;
+    font-size: larger;
+    font-family: fantasy;
+}
