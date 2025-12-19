@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Inscription | FixMyCity</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="auth-bg">
+
+<div class="auth-card">
+  <div class="logo" style="text-align:center;margin-bottom:15px;">
+    Fix<span>My</span>City
+  </div>
+
+  <h2>Créer un compte</h2>
+
+  <form id="registerForm">
+    <input type="text" placeholder="Nom complet" required>
+    <input type="email" placeholder="Adresse email" required>
+    <input type="password" placeholder="Mot de passe" required>
+    <input type="password" placeholder="Confirmer mot de passe" required>
+
+    <button class="btn-cta" style="width:100%;">S'inscrire</button>
+  </form>
+
+  <p>Déjà un compte ? <a href="login.html">Connexion</a></p>
+</div>
+
+<script>
+document.getElementById("registerForm").addEventListener("submit", e => {
+  e.preventDefault();
+  alert("✅ Compte créé avec succès (simulation)");
+});
+</script>
+
+</body>
+</html>
+

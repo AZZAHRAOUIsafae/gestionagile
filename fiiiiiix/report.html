@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Créer un signalement</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+</head>
+<body class="auth-bg">
+
+<div class="auth-card large">
+  <h2>Créer un signalement</h2>
+
+  <form id="reportForm">
+    <input type="text" placeholder="Titre du problème" required>
+
+    <select required>
+      <option value="">Type de problème</option>
+      <option>Route endommagée</option>
+      <option>Éclairage public</option>
+      <option>Déchets</option>
+      <option>Fuite d’eau</option>
+      <option>Égouts</option>
+      <option>Espaces verts</option>
+      <option>Stationnement</option>
+      <option>Sécurité</option>
+      <option>Autres .... </option>
+    </select>
+
+    <textarea placeholder="Description détaillée" required></textarea>
+
+    <div id="map"></div>
+
+    <button class="btn-cta" style="width:100%;">Envoyer le signalement</button>
+  </form>
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+let map = L.map('map').setView([33.57,-7.58],13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+let marker;
+
+map.on('click', e => {
+  if(marker) map.removeLayer(marker);
+  marker = L.marker(e.latlng).addTo(map);
+});
+</script>
+
+</body>
+</html>
+

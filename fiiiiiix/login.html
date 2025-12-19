@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Connexion | FixMyCity</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body class="auth-bg">
+
+<div class="auth-card">
+  <div class="logo" style="text-align:center;margin-bottom:15px;">
+    Fix<span>My</span>City
+  </div>
+
+  <h2>Connexion</h2>
+
+  <form id="loginForm">
+    <input type="email" placeholder="Adresse email" required>
+    <input type="password" placeholder="Mot de passe" required>
+
+    <button class="btn-cta" style="width:100%;">Se connecter</button>
+  </form>
+
+  <p>Pas encore de compte ? <a href="register.html">Créer un compte</a></p>
+</div>
+
+<script>
+document.getElementById("loginForm").addEventListener("submit", e => {
+  e.preventDefault();
+  alert("✅ Connexion réussie (simulation)");
+});
+</script>
+
+</body>
+</html>
+
