@@ -1,0 +1,6 @@
+{
+  "name": "DataTopoGuard",
+  "description": "Secure topographic management platform with multi-language support (FR, EN, AR), real-time notifications, and online Stripe payments. Featuring topographic evaluation, failed login logging for security, and professional project tracking.",
+  "requestFramePermissions": ["geolocation", "camera"],
+  "majorCapabilities": ["Real-time Chat", "GIS Integration", "Document Management", "Role-based Access Control"]
+}

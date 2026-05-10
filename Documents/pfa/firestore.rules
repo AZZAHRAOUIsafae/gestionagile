@@ -1,0 +1,185 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 0. Global Safety Net - Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- PHASE 3: GLOBAL HELPERS ---
+    function isSignedIn() { 
+      return request.auth != null; 
+    }
+    
+    // Pillar 6: Secure Identity & PII Guard
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+    
+    function isOwner(userId) { 
+      return isSignedIn() && request.auth.uid == userId; 
+    }
+    
+    // Pillar 3: Path Variable Hardening
+    function isValidId(id) { 
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
+    }
+    
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    function isAdmin() { 
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
+    }
+
+    // --- PHASE 4: COLLECTION MATCHES ---
+
+    // 1. Users Collection - PII Isolation
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.keys().hasAll(['uid', 'name', 'email', 'role']) &&
+               data.uid == userId &&
+               data.uid is string &&
+               data.name is string && data.name.size() <= 100 &&
+               data.email is string && data.email.size() <= 100 &&
+               data.role in ['CLIENT', 'TOPOGRAPHER', 'ADMIN'];
+      }
+
+      // Restrict email/phone reads to owner or admin
+      allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin(); // Forced list query protection
+      
+      allow create: if isSignedIn() && isOwner(userId) && 
+                      isValidUser(incoming()) && 
+                      incoming().role != 'ADMIN'; // Prevent self-promotion to admin
+      
+      allow update: if isSignedIn() && (
+        (isOwner(userId) && 
+         // Pillar 2 & 4: Tiered Identity Logic + strict keys
+         incoming().role == existing().role && 
+         incoming().email == existing().email &&
+         incoming().uid == existing().uid &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'age', 'company', 'avatar', 'isTwoFactorEnabled', 'address', 'bio', 'blockedUids', 'loginHistory', 'updatedAt'])
+        ) ||
+        isAdmin()
+      ) && isValidUser(incoming());
+      
+      allow delete: if isAdmin();
+    }
+
+    // 2. Projects Collection
+    match /projects/{projectId} {
+      function isValidProject(data) {
+        return data.keys().hasAll(['name', 'clientId', 'topographerId', 'status']) &&
+               data.name is string && data.name.size() <= 200 &&
+               isValidId(data.clientId) &&
+               isValidId(data.topographerId) &&
+               data.status in ['PENDING', 'IN_PROGRESS', 'COMPLETED', 'VALIDATION', 'READY', 'MODIFICATION_REQUESTED'];
+      }
+
+      // Pillar 8: Secure List Queries
+      allow read: if isSignedIn() && isValidId(projectId) && (
+        resource.data.clientId == request.auth.uid || 
+        resource.data.topographerId == request.auth.uid || 
+        isAdmin()
+      );
+
+      allow create: if isEmailVerified() && isValidId(projectId) && 
+                      (incoming().clientId == request.auth.uid || isAdmin()) &&
+                      isValidProject(incoming()) &&
+                      // Relay verify: topographer must exist
+                      exists(/databases/$(database)/documents/users/$(incoming().topographerId));
+
+      allow update: if isEmailVerified() && isValidId(projectId) && (
+        isAdmin() ||
+        // Pillar 4: Topographer Tier
+        (existing().topographerId == request.auth.uid && 
+         incoming().clientId == existing().clientId &&
+         incoming().topographerId == existing().topographerId &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'progress', 'currentStep', 'startDate', 'description', 'mapsUrl', 'coordinates', 'area', 'perimeter', 'updatedAt', 'location', 'mapData'])
+        ) ||
+        // Pillar 4: Client Tier (Partial Updates)
+        (existing().clientId == request.auth.uid && 
+         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt', 'mapData']) &&
+         incoming().status == 'VALIDATION' // Clients only move to validation
+        )
+      ) && isValidProject(incoming());
+
+      allow delete: if isAdmin();
+    }
+
+    // 3. Documents Collection
+    match /documents/{docId} {
+      function isValidDocument(data) {
+        return data.keys().hasAll(['projectId', 'name', 'type', 'url']) &&
+               isValidId(data.projectId) &&
+               data.name is string && data.name.size() <= 200 &&
+               data.type in ['INVOICE', 'QUOTE', 'MAP', 'PDF', 'CAD', 'PHOTO'] &&
+               data.url is string && data.url.size() <= 1048576; // 1MB limit for Firestore doc
+      }
+
+      function hasProjectAccess(projectId) {
+        let project = get(/databases/$(database)/documents/projects/$(projectId)).data;
+        return project.clientId == request.auth.uid || project.topographerId == request.auth.uid;
+      }
+
+      allow read: if isSignedIn() && (isAdmin() || hasProjectAccess(resource.data.projectId));
+      
+      allow create: if isEmailVerified() && isValidDocument(incoming()) && 
+                      (isAdmin() || hasProjectAccess(incoming().projectId));
+      
+      allow update: if isAdmin();
+      
+      // Pillar 4: Only owner can delete their specific docs if needed
+      allow delete: if isAdmin() || (isEmailVerified() && hasProjectAccess(resource.data.projectId));
+    }
+
+    // 4. Messages Collection
+    match /messages/{msgId} {
+      function isValidMessage(data) {
+        return data.keys().hasAll(['senderId', 'receiverId', 'text', 'timestamp']) &&
+               data.senderId == request.auth.uid &&
+               isValidId(data.receiverId) &&
+               data.text is string && data.text.size() <= 5000 &&
+               data.timestamp == request.time;
+      }
+
+      allow read: if isSignedIn() && (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid || isAdmin());
+      
+      allow create: if isEmailVerified() && isValidMessage(incoming()) && 
+                      // Verify recipient exists (optional, could be expensive if many messages)
+                      exists(/databases/$(database)/documents/users/$(incoming().receiverId));
+      
+      allow update: if isSignedIn() && (
+        (resource.data.senderId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['text'])) ||
+        (resource.data.receiverId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['deletedBy']))
+      );
+    }
+
+    // 5. Connection Requests
+    match /connectionRequests/{reqId} {
+      allow read: if isSignedIn() && (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid || isAdmin());
+      allow create: if isEmailVerified() && incoming().senderId == request.auth.uid && incoming().status == 'PENDING';
+      allow update: if isEmailVerified() && (
+        (existing().receiverId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['status']))
+      );
+    }
+
+    // 6. Failed Logins (Security Audit)
+    match /failed_logins/{logId} {
+      allow read: if isAdmin();
+      allow create: if true; // Open for system logging but we should rate limit on backend
+    }
+
+    // 7. Reviews
+    match /reviews/{reviewId} {
+      allow read: if isSignedIn();
+      allow create: if isEmailVerified() && incoming().clientId == request.auth.uid && 
+                      get(/databases/$(database)/documents/projects/$(incoming().projectId)).data.clientId == request.auth.uid;
+      allow delete: if isAdmin();
+    }
+  }
+}

@@ -1,0 +1,105 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 3. Global Helpers
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    
+    // Check if user is an admin
+    function isAdmin() { 
+      return isSignedIn() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
+    }
+
+    // 1. Users Collection
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.keys().hasAll(['uid', 'name', 'email', 'role']) &&
+               data.uid == request.auth.uid &&
+               data.name is string && data.name.size() > 0 &&
+               data.email is string && data.email.size() > 0 &&
+               data.role in ['CLIENT', 'TOPOGRAPHER', 'ADMIN'] &&
+               (data.keys().size() <= 10);
+      }
+
+      allow get: if isSignedIn() && (isOwner(userId) || isAdmin() || existing().role == 'TOPOGRAPHER');
+      allow list: if isAdmin();
+      allow create: if isSignedIn() && isOwner(userId) && isValidUser(incoming());
+      allow update: if isSignedIn() && (
+        (isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'age', 'company', 'avatar', 'isTwoFactorEnabled'])) ||
+        isAdmin()
+      ) && isValidUser(incoming());
+    }
+
+    // 2. Projects Collection
+    match /projects/{projectId} {
+      function isValidProject(data) {
+        return data.keys().hasAll(['name', 'clientId', 'topographerId', 'status']) &&
+               data.name is string && data.name.size() > 0 &&
+               data.clientId is string &&
+               data.topographerId is string &&
+               data.status in ['PENDING', 'IN_PROGRESS', 'COMPLETED', 'VALIDATION', 'READY', 'MODIFICATION_REQUESTED'] &&
+               (data.keys().size() <= 15);
+      }
+
+      function isClientOrTopoOfProject(data) {
+        return data.clientId == request.auth.uid || data.topographerId == request.auth.uid;
+      }
+
+      allow get: if isSignedIn() && isValidId(projectId) && (isClientOrTopoOfProject(existing()) || isAdmin());
+      allow list: if isSignedIn() && (resource.data.clientId == request.auth.uid || resource.data.topographerId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidId(projectId) && (incoming().topographerId == request.auth.uid || isAdmin()) && isValidProject(incoming());
+      allow update: if isSignedIn() && isValidId(projectId) && (
+        (existing().topographerId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'progress', 'deadline', 'description', 'mapsUrl', 'coordinates', 'area', 'perimeter', 'orientation'])) ||
+        (existing().clientId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['status'])) ||
+        isAdmin()
+      ) && isValidProject(incoming());
+      allow delete: if isAdmin() && isValidId(projectId);
+    }
+
+    // 3. Documents Collection
+    match /documents/{docId} {
+      function isValidDocument(data) {
+        return data.keys().hasAll(['projectId', 'name', 'type', 'url']) &&
+               data.projectId is string &&
+               data.name is string &&
+               data.type in ['INVOICE', 'QUOTE', 'ORDER', 'MAP', 'PDF', 'CAD', 'PHOTO', 'TECH', 'FIELD', 'PAYMENT_SCREENSHOT'] &&
+               data.url is string &&
+               (data.keys().size() <= 10);
+      }
+
+      function canAccessDocsOfProject(projectId) {
+        let project = get(/databases/$(database)/documents/projects/$(projectId)).data;
+        return project.clientId == request.auth.uid || project.topographerId == request.auth.uid || isAdmin();
+      }
+
+      allow read: if isSignedIn() && canAccessDocsOfProject(existing().projectId);
+      allow create: if isSignedIn() && canAccessDocsOfProject(incoming().projectId) && isValidDocument(incoming());
+      allow update: if isAdmin();
+      allow delete: if isAdmin() || (isSignedIn() && get(/databases/$(database)/documents/projects/$(existing().projectId)).data.topographerId == request.auth.uid);
+    }
+
+    // 4. Messages Collection
+    match /messages/{msgId} {
+      function isValidMessage(data) {
+        return data.keys().hasAll(['senderId', 'receiverId', 'text', 'timestamp']) &&
+               data.senderId == request.auth.uid &&
+               data.receiverId is string &&
+               data.text is string &&
+               data.timestamp == request.time;
+      }
+
+      allow read: if isSignedIn() && (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidMessage(incoming());
+      allow update, delete: if false;
+    }
+  }
+}

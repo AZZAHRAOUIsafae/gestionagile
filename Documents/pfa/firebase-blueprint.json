@@ -1,0 +1,141 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["CLIENT", "TOPOGRAPHER", "ADMIN"] },
+        "phone": { "type": "string" },
+        "age": { "type": "number" },
+        "company": { "type": "string" },
+        "avatar": { "type": "string" },
+        "isTwoFactorEnabled": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "name", "email", "role"]
+    },
+    "Project": {
+      "title": "Project",
+      "description": "Topographic project details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "clientId": { "type": "string" },
+        "clientName": { "type": "string" },
+        "topographerId": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "IN_PROGRESS", "COMPLETED", "VALIDATION", "READY", "MODIFICATION_REQUESTED"] },
+        "progress": { "type": "number" },
+        "deadline": { "type": "string" },
+        "description": { "type": "string" },
+        "mapsUrl": { "type": "string" },
+        "coordinates": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" },
+            "z": { "type": "number" }
+          }
+        },
+        "area": { "type": "number" },
+        "perimeter": { "type": "number" },
+        "orientation": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "clientId", "topographerId", "status"]
+    },
+    "Document": {
+      "title": "Document",
+      "description": "Finance or technical document",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["INVOICE", "QUOTE", "ORDER", "MAP", "PDF", "CAD", "PHOTO", "TECH", "FIELD", "PAYMENT_SCREENSHOT"] },
+        "url": { "type": "string" },
+        "size": { "type": "string" },
+        "amount": {
+          "type": "object",
+          "properties": {
+            "ht": { "type": "number" },
+            "ttc": { "type": "number" },
+            "acompte": { "type": "number" },
+            "reste": { "type": "number" }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["projectId", "name", "type", "url"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Chat message",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "text": { "type": "string" },
+        "type": { "type": "string", "enum": ["text", "image", "location"] },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["senderId", "receiverId", "text", "timestamp"]
+    },
+    "FailedLogin": {
+      "title": "Failed Login",
+      "description": "Log of a failed login attempt",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "reason": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "userAgent": { "type": "string" }
+      },
+      "required": ["email", "reason", "timestamp"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "Client review for a topographer",
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string" },
+        "clientId": { "type": "string" },
+        "topographerId": { "type": "string" },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["projectId", "clientId", "topographerId", "rating"]
+    }
+  },
+  "firestore": {
+    "users": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "projects": {
+      "schema": "Project",
+      "description": "Topographic projects"
+    },
+    "documents": {
+      "schema": "Document",
+      "description": "Invoices, quotes, and files"
+    },
+    "messages": {
+      "schema": "Message",
+      "description": "Internal chat messages"
+    },
+    "failed_logins": {
+      "schema": "FailedLogin",
+      "description": "Security logs for failed login attempts"
+    },
+    "reviews": {
+      "schema": "Review",
+      "description": "Topographer reviews"
+    }
+  }
+}
