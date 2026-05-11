@@ -475,7 +475,7 @@ export default function ClientDashboard({ user, projects, documents, notificatio
               )) : (
                 <div className="text-center py-20 text-muted-foreground">
                   <FileText className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                  <p>{t('documents.empty')}</p>
+                  <p>hhjdjdhj</p>
                 </div>
               )}
             </div>
